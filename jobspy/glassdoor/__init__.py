@@ -121,7 +121,9 @@ class Glassdoor(Scraper):
                 raise GlassdoorException(exc_msg)
             res_json = response.json()[0]
             if "errors" in res_json:
-                raise ValueError("Error encountered in API response")
+                error_details = res_json.get("errors", [])
+                log.error(f"Glassdoor API error response: {error_details}")
+                raise ValueError(f"Error encountered in API response: {error_details}")
         except (
             requests.exceptions.ReadTimeout,
             GlassdoorException,

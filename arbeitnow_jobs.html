@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Arbeitnow Jobs - Cloud/DevOps/Platform Engineer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            padding: 30px;
+            color: #e2e8f0;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 28px;
+            color: #f8fafc;
+            margin-bottom: 8px;
+        }
+        .header p {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-badge {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 14px;
+        }
+        .stat-badge strong { color: #38bdf8; }
+        .controls {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .btn-save {
+            background: #10b981;
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-right: 10px;
+        }
+        .btn-save:hover { background: #059669; }
+        
+        /* Exclusion Management Section */
+        .exclusion-section {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .exclusion-section h3 {
+            color: #f8fafc;
+            font-size: 16px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .exclusion-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .exclusion-input-group input {
+            flex: 1;
+            min-width: 250px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 10px 14px;
+            color: #e2e8f0;
+            font-size: 14px;
+        }
+        .exclusion-input-group input::placeholder {
+            color: #64748b;
+        }
+        .exclusion-input-group input:focus {
+            outline: none;
+            border-color: #38bdf8;
+        }
+        .btn-add-exclude {
+            background: #f59e0b;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .btn-add-exclude:hover { background: #d97706; }
+        
+        .excluded-keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .excluded-tag {
+            background: #7c3aed;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-remove-exclude {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            line-height: 1;
+        }
+        .btn-remove-exclude:hover {
+            opacity: 0.7;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #1e293b;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        thead {
+            background: #7c3aed;
+        }
+        th {
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #fff;
+        }
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #334155;
+            font-size: 14px;
+        }
+        tr:hover { background: #334155; }
+        tr.applied {
+            background: #064e3b !important;
+            opacity: 0.6;
+        }
+        tr.applied .btn-apply {
+            background: #475569;
+            cursor: default;
+        }
+        tr.applied .btn-apply::after { content: " ✓"; }
+        .title-col { font-weight: 500; max-width: 300px; }
+        .title-col a {
+            color: #38bdf8;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .title-col a:hover { text-decoration: underline; color: #7dd3fc; }
+        .remote-tag {
+            background: #065f46;
+            color: #6ee7b7;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+        .tags {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        .btn-apply {
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 5px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-apply:hover { background: #dc2626; }
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Arbeitnow — Job Listings</h1>
+        <p>Cloud &bull; DevOps &bull; Platform &bull; SRE &bull; Infrastructure &bull; Kubernetes &bull; AWS &bull; Azure</p>
+    </div>
+    <div class="stats">
+        <div class="stat-badge">Total from API: <strong>928</strong></div>
+        <div class="stat-badge">Matched keywords: <strong>33</strong></div>
+        <div class="stat-badge">After exclusions: <strong>26</strong></div>
+        <div class="stat-badge">Showing: <strong>18</strong></div>
+        <div class="stat-badge">Already applied: <strong>8</strong></div>
+    </div>
+    
+    <div class="exclusion-section">
+        <h3>🚫 Manage Exclusion Keywords</h3>
+        <div class="exclusion-input-group">
+            <input type="text" id="excludeInput" placeholder="Enter role or keyword to exclude (e.g., 'data engineer')" />
+            <button class="btn-add-exclude" onclick="addExclude()">Add Exclusion</button>
+            <button class="btn-save" onclick="saveExclusions()">Save to File</button>
+        </div>
+        <div class="excluded-keywords" id="excludedList">
+            <span class="excluded-tag">Data Platform Engineer <button class="btn-remove-exclude" onclick="removeExclude('Data Platform Engineer')">✕</button></span><span class="excluded-tag">SAP <button class="btn-remove-exclude" onclick="removeExclude('SAP')">✕</button></span><span class="excluded-tag">Senior Data Engineer <button class="btn-remove-exclude" onclick="removeExclude('Senior Data Engineer')">✕</button></span><span class="excluded-tag">Senior Full Stack Developer <button class="btn-remove-exclude" onclick="removeExclude('Senior Full Stack Developer')">✕</button></span><span class="excluded-tag">Senior SAP BTP Developer <button class="btn-remove-exclude" onclick="removeExclude('Senior SAP BTP Developer')">✕</button></span><span class="excluded-tag">Senior SAP Cloud Developer <button class="btn-remove-exclude" onclick="removeExclude('Senior SAP Cloud Developer')">✕</button></span><span class="excluded-tag">business central spezialist:in (m/w/d) - 100% remote & flexibel <button class="btn-remove-exclude" onclick="removeExclude('business central spezialist:in (m/w/d) - 100% remote & flexibel')">✕</button></span><span class="excluded-tag">data engineer <button class="btn-remove-exclude" onclick="removeExclude('data engineer')">✕</button></span><span class="excluded-tag">data science <button class="btn-remove-exclude" onclick="removeExclude('data science')">✕</button></span><span class="excluded-tag">fullstack softwareentwickler (m/w/d) <button class="btn-remove-exclude" onclick="removeExclude('fullstack softwareentwickler (m/w/d)')">✕</button></span><span class="excluded-tag">machine learning <button class="btn-remove-exclude" onclick="removeExclude('machine learning')">✕</button></span><span class="excluded-tag">mulesoft integration architect (m/f/d) (ref.nr.: 47027) <button class="btn-remove-exclude" onclick="removeExclude('mulesoft integration architect (m/f/d) (ref.nr.: 47027)')">✕</button></span><span class="excluded-tag">quality assurance engineer (m/f/d) <button class="btn-remove-exclude" onclick="removeExclude('quality assurance engineer (m/f/d)')">✕</button></span><span class="excluded-tag">senior data & ai engineer (w/m/d) <button class="btn-remove-exclude" onclick="removeExclude('senior data & ai engineer (w/m/d)')">✕</button></span><span class="excluded-tag">senior frontend developer (m/w/d) <button class="btn-remove-exclude" onclick="removeExclude('senior frontend developer (m/w/d)')">✕</button></span><span class="excluded-tag">senior fullstack engineer (python, typescript, azure) - schnittstellen, erp & automation <button class="btn-remove-exclude" onclick="removeExclude('senior fullstack engineer (python, typescript, azure) - schnittstellen, erp & automation')">✕</button></span><span class="excluded-tag">werkstudent softwareentwicklung und devops (m/w/d) <button class="btn-remove-exclude" onclick="removeExclude('werkstudent softwareentwicklung und devops (m/w/d)')">✕</button></span><span class="excluded-tag">werkstudent* <button class="btn-remove-exclude" onclick="removeExclude('werkstudent*')">✕</button></span>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button class="btn-save" onclick="saveApplied()">Save Applied Jobs</button>
+        <button class="btn-save" style="background: #ef4444;" onclick="resetLocalStorage()">Reset Applied (Clear Local Data)</button>
+    </div>
+    
+    <table><thead><tr><th>Title</th><th>Company</th><th>Location</th><th>Tags</th><th>Type</th><th>Posted</th><th>Action</th></tr></thead><tbody>
+    <tr id="row-0" data-url="https://www.arbeitnow.com/jobs/companies/kintscher-gbr/werkstudent-social-media-marketing-munich-266745">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/kintscher-gbr/werkstudent-social-media-marketing-munich-266745" target="_blank">Werkstudent Social Media Marketing (w/m/d)</a></td>
+        <td>Kintscher GbR</td>
+        <td>Munich <span class="remote-tag">Remote</span></td>
+        <td><span class="tags">Remote, Online Marketing</span></td>
+        <td>Working student, berufserfahren</td>
+        <td>2026-06-29</td>
+        <td><button class="btn-apply" onclick="markApplied(0, 'https://www.arbeitnow.com/jobs/companies/kintscher-gbr/werkstudent-social-media-marketing-munich-266745')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-1" data-url="https://www.arbeitnow.com/jobs/companies/kintscher-gbr/werkstudent-founders-associate-social-media-recruiting-munich-457254">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/kintscher-gbr/werkstudent-founders-associate-social-media-recruiting-munich-457254" target="_blank">Werkstudent Founders Associate - Social Media & Recruiting (w/m/d)</a></td>
+        <td>Kintscher GbR</td>
+        <td>Munich <span class="remote-tag">Remote</span></td>
+        <td><span class="tags">Remote, Marketing and Communication</span></td>
+        <td>Working student</td>
+        <td>2026-06-29</td>
+        <td><button class="btn-apply" onclick="markApplied(1, 'https://www.arbeitnow.com/jobs/companies/kintscher-gbr/werkstudent-founders-associate-social-media-recruiting-munich-457254')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-2" data-url="https://www.arbeitnow.com/jobs/companies/1komma50/senior-software-engineer-mobile-berlin-383161">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/1komma50/senior-software-engineer-mobile-berlin-383161" target="_blank">Senior Software Engineer - Mobile (m/f/d)</a></td>
+        <td>1KOMMA5˚</td>
+        <td>Berlin <span class="remote-tag">Remote</span></td>
+        <td><span class="tags">Remote, Software Development</span></td>
+        <td>professional / experienced</td>
+        <td>2026-06-27</td>
+        <td><button class="btn-apply" onclick="markApplied(2, 'https://www.arbeitnow.com/jobs/companies/1komma50/senior-software-engineer-mobile-berlin-383161')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-3" data-url="https://www.arbeitnow.com/jobs/companies/atolls/senior-software-engineer-typescript-nestjs-nodejs-berlin-233143">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/atolls/senior-software-engineer-typescript-nestjs-nodejs-berlin-233143" target="_blank">Senior Software Engineer (TypeScript, NestJS/Node.js) (m/f/x)</a></td>
+        <td>Atolls</td>
+        <td>Berlin, Berlin, Germany</td>
+        <td><span class="tags"></span></td>
+        <td></td>
+        <td>2026-06-27</td>
+        <td><button class="btn-apply" onclick="markApplied(3, 'https://www.arbeitnow.com/jobs/companies/atolls/senior-software-engineer-typescript-nestjs-nodejs-berlin-233143')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-4" data-url="https://www.arbeitnow.com/jobs/companies/optano-gmbh/analytics-software-engineer-paderborn-230821">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/optano-gmbh/analytics-software-engineer-paderborn-230821" target="_blank">Analytics Software Engineer (m/w/d)</a></td>
+        <td>OPTANO GmbH</td>
+        <td>Paderborn</td>
+        <td><span class="tags">Consulting, Engineering</span></td>
+        <td>berufserfahren</td>
+        <td>2026-06-26</td>
+        <td><button class="btn-apply" onclick="markApplied(4, 'https://www.arbeitnow.com/jobs/companies/optano-gmbh/analytics-software-engineer-paderborn-230821')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-5" data-url="https://www.arbeitnow.com/jobs/companies/wavestone-germany-ag/systemarchitekt-cloud-datenintegration-refnr-47100-munich-109680">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/wavestone-germany-ag/systemarchitekt-cloud-datenintegration-refnr-47100-munich-109680" target="_blank">Systemarchitekt (m/w/d) Cloud & Datenintegration (Ref.Nr.: 47100)</a></td>
+        <td>Wavestone Germany AG</td>
+        <td>Munich</td>
+        <td><span class="tags">Business Consulting</span></td>
+        <td>Freelance, berufserfahren</td>
+        <td>2026-06-25</td>
+        <td><button class="btn-apply" onclick="markApplied(5, 'https://www.arbeitnow.com/jobs/companies/wavestone-germany-ag/systemarchitekt-cloud-datenintegration-refnr-47100-munich-109680')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-6" data-url="https://www.arbeitnow.com/jobs/companies/sidekick-network-gmbh-co-kg/senior-enterprise-architect-it-service-management-consultant-for-our-talent-pool-bonn-465187">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/sidekick-network-gmbh-co-kg/senior-enterprise-architect-it-service-management-consultant-for-our-talent-pool-bonn-465187" target="_blank">Senior Enterprise Architect & IT Service Management Consultant (m/f/d) for our Talent Pool</a></td>
+        <td>Sidekick Network GmbH & Co. KG</td>
+        <td>Bonn <span class="remote-tag">Remote</span></td>
+        <td><span class="tags">Remote, IT</span></td>
+        <td>Freelance, professional / experienced</td>
+        <td>2026-06-25</td>
+        <td><button class="btn-apply" onclick="markApplied(6, 'https://www.arbeitnow.com/jobs/companies/sidekick-network-gmbh-co-kg/senior-enterprise-architect-it-service-management-consultant-for-our-talent-pool-bonn-465187')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-7" data-url="https://www.arbeitnow.com/jobs/companies/tenmedia-gmbh/fachinformatiker-fur-anwendungsentwicklung-vollzeit-berlin-449512">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/tenmedia-gmbh/fachinformatiker-fur-anwendungsentwicklung-vollzeit-berlin-449512" target="_blank">Fachinformatiker für Anwendungsentwicklung (m/w/d) | Vollzeit</a></td>
+        <td>TenMedia GmbH</td>
+        <td>Berlin</td>
+        <td><span class="tags">Software Development</span></td>
+        <td></td>
+        <td>2026-06-24</td>
+        <td><button class="btn-apply" onclick="markApplied(7, 'https://www.arbeitnow.com/jobs/companies/tenmedia-gmbh/fachinformatiker-fur-anwendungsentwicklung-vollzeit-berlin-449512')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-8" data-url="https://www.arbeitnow.com/jobs/companies/tenmedia-gmbh/traumpraktikum-mit-perspektive-werde-fachinformatiker-fur-anwendungsentwicklung-bei-uns-in-berlin-166665">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/tenmedia-gmbh/traumpraktikum-mit-perspektive-werde-fachinformatiker-fur-anwendungsentwicklung-bei-uns-in-berlin-166665" target="_blank">Traumpraktikum mit Perspektive: Werde Fachinformatiker für Anwendungsentwicklung (m/w/d) bei uns in Berlin!</a></td>
+        <td>TenMedia GmbH</td>
+        <td>Berlin</td>
+        <td><span class="tags">Software Development</span></td>
+        <td>Internship</td>
+        <td>2026-06-24</td>
+        <td><button class="btn-apply" onclick="markApplied(8, 'https://www.arbeitnow.com/jobs/companies/tenmedia-gmbh/traumpraktikum-mit-perspektive-werde-fachinformatiker-fur-anwendungsentwicklung-bei-uns-in-berlin-166665')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-9" data-url="https://www.arbeitnow.com/jobs/companies/simplifier-ag/product-owner-ai-fokus-mwd-wurzburg-401320">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/simplifier-ag/product-owner-ai-fokus-mwd-wurzburg-401320" target="_blank">Product Owner - AI Fokus (m|w|d)</a></td>
+        <td>Simplifier AG</td>
+        <td>Würzburg <span class="remote-tag">Remote</span></td>
+        <td><span class="tags">Remote, Product Management</span></td>
+        <td></td>
+        <td>2026-06-23</td>
+        <td><button class="btn-apply" onclick="markApplied(9, 'https://www.arbeitnow.com/jobs/companies/simplifier-ag/product-owner-ai-fokus-mwd-wurzburg-401320')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-10" data-url="https://www.arbeitnow.com/jobs/companies/noah-labs/senior-ai-product-engineer-berlin-449471">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/noah-labs/senior-ai-product-engineer-berlin-449471" target="_blank">Senior AI Product Engineer</a></td>
+        <td>Noah Labs</td>
+        <td>Berlin</td>
+        <td><span class="tags">Engineering</span></td>
+        <td>professional / experienced</td>
+        <td>2026-06-25</td>
+        <td><button class="btn-apply" onclick="markApplied(10, 'https://www.arbeitnow.com/jobs/companies/noah-labs/senior-ai-product-engineer-berlin-449471')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-11" data-url="https://www.arbeitnow.com/jobs/companies/memodio/fullstack-product-engineer-for-flutter-nodejs-100-homeoffice-potsdam-257179">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/memodio/fullstack-product-engineer-for-flutter-nodejs-100-homeoffice-potsdam-257179" target="_blank">Fullstack / Product Engineer (f/m/d) for Flutter & Node.js (100% Homeoffice)</a></td>
+        <td>memodio</td>
+        <td>Potsdam <span class="remote-tag">Remote</span></td>
+        <td><span class="tags">Remote, Software Development</span></td>
+        <td>professional / experienced</td>
+        <td>2026-06-24</td>
+        <td><button class="btn-apply" onclick="markApplied(11, 'https://www.arbeitnow.com/jobs/companies/memodio/fullstack-product-engineer-for-flutter-nodejs-100-homeoffice-potsdam-257179')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-12" data-url="https://www.arbeitnow.com/jobs/companies/whereversim/customer-support-specialist-hamburg-409490">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/whereversim/customer-support-specialist-hamburg-409490" target="_blank">Customer Support Specialist (m/w/x)</a></td>
+        <td>WhereverSIM</td>
+        <td>Hamburg</td>
+        <td><span class="tags">System and Network Administration</span></td>
+        <td>berufserfahren</td>
+        <td>2026-06-23</td>
+        <td><button class="btn-apply" onclick="markApplied(12, 'https://www.arbeitnow.com/jobs/companies/whereversim/customer-support-specialist-hamburg-409490')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-13" data-url="https://www.arbeitnow.com/jobs/companies/bikeleasing-service-gmbh-co-kg/teamlead-qa-gn-berlin-83601">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/bikeleasing-service-gmbh-co-kg/teamlead-qa-gn-berlin-83601" target="_blank">Teamlead QA (gn)</a></td>
+        <td>Bikeleasing-Service GmbH & Co. KG</td>
+        <td>Berlin <span class="remote-tag">Remote</span></td>
+        <td><span class="tags">Remote, Software Development</span></td>
+        <td>berufserfahren</td>
+        <td>2026-06-25</td>
+        <td><button class="btn-apply" onclick="markApplied(13, 'https://www.arbeitnow.com/jobs/companies/bikeleasing-service-gmbh-co-kg/teamlead-qa-gn-berlin-83601')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-14" data-url="https://www.arbeitnow.com/jobs/companies/bikeleasing-service-gmbh-co-kg/teamlead-qa-gn-berlin-38807">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/bikeleasing-service-gmbh-co-kg/teamlead-qa-gn-berlin-38807" target="_blank">Teamlead QA (gn)</a></td>
+        <td>Bikeleasing-Service GmbH & Co. KG</td>
+        <td>Berlin <span class="remote-tag">Remote</span></td>
+        <td><span class="tags">Remote, Software Development</span></td>
+        <td>professional / experienced</td>
+        <td>2026-06-25</td>
+        <td><button class="btn-apply" onclick="markApplied(14, 'https://www.arbeitnow.com/jobs/companies/bikeleasing-service-gmbh-co-kg/teamlead-qa-gn-berlin-38807')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-15" data-url="https://www.arbeitnow.com/jobs/companies/benuta-gmbh/ai-strategy-automation-lead-bonn-21537">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/benuta-gmbh/ai-strategy-automation-lead-bonn-21537" target="_blank">AI Strategy & Automation Lead (m/w/d)</a></td>
+        <td>benuta GmbH</td>
+        <td>Bonn</td>
+        <td><span class="tags">IT</span></td>
+        <td>berufserfahren</td>
+        <td>2026-06-24</td>
+        <td><button class="btn-apply" onclick="markApplied(15, 'https://www.arbeitnow.com/jobs/companies/benuta-gmbh/ai-strategy-automation-lead-bonn-21537')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-16" data-url="https://www.arbeitnow.com/jobs/companies/acemateai/senior-backend-engineer-berlin-281232">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/acemateai/senior-backend-engineer-berlin-281232" target="_blank">Senior Backend Engineer</a></td>
+        <td>acemate.ai</td>
+        <td>Berlin</td>
+        <td><span class="tags">Software Development</span></td>
+        <td>professional / experienced</td>
+        <td>2026-06-24</td>
+        <td><button class="btn-apply" onclick="markApplied(16, 'https://www.arbeitnow.com/jobs/companies/acemateai/senior-backend-engineer-berlin-281232')">Mark Applied</button></td>
+    </tr>
+    <tr id="row-17" data-url="https://www.arbeitnow.com/jobs/companies/progyny-global/software-engineering-manager-berlin-446041">
+        <td class="title-col"><a href="https://www.arbeitnow.com/jobs/companies/progyny-global/software-engineering-manager-berlin-446041" target="_blank">Software Engineering Manager (m/f/x)</a></td>
+        <td>Progyny Global</td>
+        <td>Berlin</td>
+        <td><span class="tags">Management, Team Leader</span></td>
+        <td>manager</td>
+        <td>2026-06-22</td>
+        <td><button class="btn-apply" onclick="markApplied(17, 'https://www.arbeitnow.com/jobs/companies/progyny-global/software-engineering-manager-berlin-446041')">Mark Applied</button></td>
+    </tr></tbody></table>
+
+    <script>
+        let appliedJobs = JSON.parse(localStorage.getItem('arbeitnowApplied') || '[]');
+        let excludedKeywords = JSON.parse(localStorage.getItem('arbeitnowExcluded') || '[]');
+
+        // Load applied jobs styling
+        appliedJobs.forEach(url => {
+            document.querySelectorAll('tr[data-url]').forEach(row => {
+                if (row.dataset.url === url) {
+                    row.classList.add('applied');
+                    row.querySelector('.btn-apply').textContent = 'Applied';
+                }
+            });
+        });
+
+        function markApplied(idx, url) {
+            const row = document.getElementById('row-' + idx);
+            if (row.classList.contains('applied')) return;
+            row.classList.add('applied');
+            row.querySelector('.btn-apply').textContent = 'Applied';
+            if (!appliedJobs.includes(url)) {
+                appliedJobs.push(url);
+                localStorage.setItem('arbeitnowApplied', JSON.stringify(appliedJobs));
+            }
+        }
+
+        function addExclude() {
+            const input = document.getElementById('excludeInput');
+            const keyword = input.value.trim().toLowerCase();
+            
+            if (!keyword) {
+                alert('Please enter a keyword');
+                return;
+            }
+            
+            if (excludedKeywords.includes(keyword)) {
+                alert('This keyword is already excluded');
+                return;
+            }
+            
+            excludedKeywords.push(keyword);
+            localStorage.setItem('arbeitnowExcluded', JSON.stringify(excludedKeywords));
+            input.value = '';
+            updateExcludedList();
+            alert('Exclusion added! Click "Save to File" to persist it permanently.');
+        }
+
+        function removeExclude(keyword) {
+            excludedKeywords = excludedKeywords.filter(k => k !== keyword.toLowerCase());
+            localStorage.setItem('arbeitnowExcluded', JSON.stringify(excludedKeywords));
+            updateExcludedList();
+        }
+
+        function updateExcludedList() {
+            const list = document.getElementById('excludedList');
+            list.innerHTML = excludedKeywords.map(kw => 
+                `<span class="excluded-tag">${kw} <button class="btn-remove-exclude" onclick="removeExclude('${kw}')">✕</button></span>`
+            ).join('');
+        }
+
+        function saveExclusions() {
+            const blob = new Blob([JSON.stringify(excludedKeywords, null, 2)], {type: 'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'excluded_keywords_arbeitnow.json';
+            a.click();
+            alert('Downloaded excluded_keywords_arbeitnow.json — place it next to arbeitnow.py to persist these exclusions permanently.\n\nNext time you run the script, it will automatically load these exclusions.');
+        }
+
+        function saveApplied() {
+            const blob = new Blob([JSON.stringify(appliedJobs, null, 2)], {type: 'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'applied_jobs_arbeitnow.json';
+            a.click();
+            alert('Downloaded applied_jobs_arbeitnow.json — place it next to arbeitnow.py to exclude these jobs on next run.');
+        }
+
+        function resetLocalStorage() {
+            if (confirm('This will clear all "Applied" markings from browser memory. Are you sure?')) {
+                appliedJobs = [];
+                excludedKeywords = [];
+                localStorage.removeItem('arbeitnowApplied');
+                localStorage.removeItem('arbeitnowExcluded');
+                alert('Browser data cleared! Refresh the page to see all jobs again.');
+                location.reload();
+            }
+        }
+
+        // Allow Enter key to add exclusion
+        document.getElementById('excludeInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') addExclude();
+        });
+    </script>
+</body>
+</html>
