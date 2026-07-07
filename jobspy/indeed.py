@@ -8,6 +8,46 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 APPLIED_FILE = os.path.join(SCRIPT_DIR, "applied_jobs.json")
 HTML_FILE = os.path.join(SCRIPT_DIR, "indeed_jobs.html")
 
+# ---------------------------------------------------------------------------
+# Configure the countries you want to search here.
+# "country_indeed" must match jobspy's expected country name (case-insensitive).
+# "location" is what gets passed to Indeed to narrow the search within that country
+# (city, region, or just the country name again for a nationwide search).
+# ---------------------------------------------------------------------------
+COUNTRIES = [
+    {"label": "UK", "location": "United Kingdom", "country_indeed": "uk"},
+    {"label": "Ireland", "location": "Ireland", "country_indeed": "ireland"},
+    {"label": "Germany", "location": "Deutschland", "country_indeed": "germany"},
+    {"label": "New Zealand", "location": "New Zealand", "country_indeed": "New Zealand"},
+]
+
+SEARCH_TERM = "Cloud Engineer, DevOps Engineer"
+
+# Words/phrases you don't want showing up in the title or description.
+# Each entry gets turned into a "-term" exclusion (multi-word phrases get quoted automatically).
+# Example: ["manager", "intern", "night shift"]
+EXCLUDE_TERMS = ["manager", "intern", "senior manager"]
+
+JOB_TYPE = "fulltime"
+HOURS_OLD = 720.0
+RESULTS_WANTED_PER_COUNTRY = 100
+
+def build_search_term(base_term, exclude_terms):
+    exclusions = ""
+    for term in exclude_terms:
+        term = term.strip()
+        if not term:
+            continue
+        # Wrap multi-word phrases in quotes so Indeed treats them as an exact match
+        if " " in term and not (term.startswith('"') and term.endswith('"')):
+            term = f'"{term}"'
+        exclusions += f" -{term}"
+    return f"{base_term}{exclusions}"
+
+
+FINAL_SEARCH_TERM = build_search_term(SEARCH_TERM, EXCLUDE_TERMS)
+print(f"Using search term: {FINAL_SEARCH_TERM}")
+
 
 def load_applied():
     if os.path.exists(APPLIED_FILE):
@@ -21,25 +61,61 @@ def save_applied(applied_set):
         json.dump(list(applied_set), f, indent=2)
 
 
-jobs = scrape_jobs(
-    site_name="indeed",
-    search_term="Cloud Engineer, DevOps Engineer",
-    location="Deutschland",
-    country_indeed="germany",
-    job_type="fulltime",
-    hours_old=720.0,
-    results_wanted=500,
-)
+all_jobs = []
 
-print(f"Found {len(jobs)} jobs")
+for c in COUNTRIES:
+    print(f"Scraping Indeed for {c['label']}...")
+    try:
+        jobs = scrape_jobs(
+            site_name="indeed",
+            search_term=FINAL_SEARCH_TERM,
+            location=c["location"],
+            country_indeed=c["country_indeed"],
+            job_type=JOB_TYPE,
+            hours_old=HOURS_OLD,
+            results_wanted=RESULTS_WANTED_PER_COUNTRY,
+        )
+        jobs["country_label"] = c["label"]
+        print(f"  Found {len(jobs)} jobs in {c['label']}")
+        all_jobs.append(jobs)
+    except Exception as e:
+        print(f"  Failed to scrape {c['label']}: {e}")
 
-columns_to_show = ["site", "job_url", "job_url_direct", "title", "company", "location", "date_posted", "job_type"]
+if not all_jobs:
+    print("No jobs found for any country. Exiting.")
+    raise SystemExit(0)
+
+jobs = pd.concat(all_jobs, ignore_index=True)
+print(f"\nTotal jobs found across all countries: {len(jobs)}")
+
+columns_to_show = [
+    "site", "job_url", "job_url_direct", "title", "company",
+    "location", "date_posted", "job_type", "country_label",
+]
 jobs_filtered = jobs[columns_to_show].copy()
+
+# Drop duplicate job URLs (a job could theoretically surface twice)
+jobs_filtered = jobs_filtered.drop_duplicates(subset=["job_url"]).reset_index(drop=True)
 
 # Exclude previously applied jobs (matched by job_url)
 applied = load_applied()
 jobs_filtered = jobs_filtered[~jobs_filtered["job_url"].isin(applied)].reset_index(drop=True)
 print(f"Showing {len(jobs_filtered)} jobs after excluding {len(applied)} previously applied")
+
+# Per-country counts for the stats bar
+country_counts = jobs_filtered["country_label"].value_counts().to_dict()
+country_badges_html = "".join(
+    f'<div class="stat-badge">{label}: <strong>{count}</strong></div>'
+    for label, count in country_counts.items()
+)
+
+# Build filter buttons dynamically from the countries configured above
+filter_buttons_html = '<button class="filter-btn active" data-country="all" onclick="filterCountry(\'all\')">All</button>'
+for c in COUNTRIES:
+    filter_buttons_html += (
+        f'<button class="filter-btn" data-country="{c["label"]}" '
+        f'onclick="filterCountry(\'{c["label"]}\')">{c["label"]}</button>'
+    )
 
 # Build HTML with styling and mark-applied functionality
 rows_html = ""
@@ -51,12 +127,14 @@ for idx, row in jobs_filtered.iterrows():
     location = row["location"] if pd.notna(row["location"]) else ""
     date_posted = str(row["date_posted"]) if pd.notna(row["date_posted"]) else ""
     job_type = row["job_type"] if pd.notna(row["job_type"]) else ""
+    country_label = row["country_label"] if pd.notna(row["country_label"]) else ""
 
     url_link = f'<a href="{job_url}" target="_blank">View</a>' if job_url else ""
     direct_link = f'<a href="{job_url_direct}" target="_blank">Direct</a>' if job_url_direct else ""
 
     rows_html += f"""
-    <tr id="row-{idx}" data-url="{job_url}">
+    <tr id="row-{idx}" data-url="{job_url}" data-country="{country_label}">
+        <td><span class="country-tag">{country_label}</span></td>
         <td>{row["site"]}</td>
         <td>{url_link}</td>
         <td>{direct_link}</td>
@@ -99,6 +177,7 @@ html_content = f"""<!DOCTYPE html>
             justify-content: center;
             gap: 20px;
             margin-bottom: 20px;
+            flex-wrap: wrap;
         }}
         .stat-badge {{
             background: #fff;
@@ -111,6 +190,35 @@ html_content = f"""<!DOCTYPE html>
         .controls {{
             text-align: center;
             margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }}
+        .filter-group {{
+            display: flex;
+            gap: 6px;
+            background: #fff;
+            padding: 6px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }}
+        .filter-btn {{
+            border: none;
+            background: transparent;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #555;
+            transition: all 0.15s;
+        }}
+        .filter-btn:hover {{ background: #f0f2f5; }}
+        .filter-btn.active {{
+            background: #1a1a2e;
+            color: #fff;
         }}
         .btn-save {{
             background: #10b981;
@@ -158,6 +266,16 @@ html_content = f"""<!DOCTYPE html>
             cursor: default;
         }}
         tr.applied .btn-apply::after {{ content: " ✓"; }}
+        tr.hidden-row {{ display: none; }}
+        .country-tag {{
+            background: #eef2ff;
+            color: #4338ca;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }}
         .title-col {{ font-weight: 500; max-width: 250px; }}
         a {{
             color: #2563eb;
@@ -181,19 +299,24 @@ html_content = f"""<!DOCTYPE html>
 <body>
     <div class="header">
         <h1>Job Listings — Cloud & DevOps Engineer</h1>
-        <p>Indeed Germany &bull; Fulltime &bull; Last 48 hours</p>
+        <p>Indeed &bull; UK, Ireland &amp; New Zealand &bull; Fulltime &bull; Last 30 days</p>
     </div>
     <div class="stats">
         <div class="stat-badge">Total found: <strong>{len(jobs)}</strong></div>
         <div class="stat-badge">Showing: <strong>{len(jobs_filtered)}</strong></div>
         <div class="stat-badge">Already applied: <strong>{len(applied)}</strong></div>
+        {country_badges_html}
     </div>
     <div class="controls">
+        <div class="filter-group">
+            {filter_buttons_html}
+        </div>
         <button class="btn-save" onclick="saveApplied()">Save Applied Jobs (update file)</button>
     </div>
     <table>
         <thead>
             <tr>
+                <th>Country</th>
                 <th>Site</th>
                 <th>Link</th>
                 <th>Direct Link</th>
@@ -242,6 +365,19 @@ html_content = f"""<!DOCTYPE html>
             a.download = 'applied_jobs.json';
             a.click();
             alert('Downloaded applied_jobs.json — place it next to indeed.py to exclude these jobs on next run.');
+        }}
+
+        function filterCountry(country) {{
+            document.querySelectorAll('.filter-btn').forEach(btn => {{
+                btn.classList.toggle('active', btn.dataset.country === country);
+            }});
+            document.querySelectorAll('tr[data-country]').forEach(row => {{
+                if (country === 'all' || row.dataset.country === country) {{
+                    row.classList.remove('hidden-row');
+                }} else {{
+                    row.classList.add('hidden-row');
+                }}
+            }});
         }}
     </script>
 </body>
