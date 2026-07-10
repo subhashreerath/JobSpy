@@ -5,14 +5,13 @@ import json
 import pandas as pd
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-APPLIED_FILE = os.path.join(SCRIPT_DIR, "applied_jobs.json")
-HTML_FILE = os.path.join(SCRIPT_DIR, "indeed_jobs.html")
+APPLIED_FILE = os.path.join(SCRIPT_DIR, "applied_jobs_glassdoor.json")
+HTML_FILE = os.path.join(SCRIPT_DIR, "glassdoor_jobs.html")
 
 # ---------------------------------------------------------------------------
 # Configure the countries you want to search here.
 # "country_indeed" must match jobspy's expected country name (case-insensitive).
-# "location" is what gets passed to Indeed to narrow the search within that country
-# (city, region, or just the country name again for a nationwide search).
+# "location" is what gets passed to Glassdoor to narrow the search within that country.
 # ---------------------------------------------------------------------------
 COUNTRIES = [
     {"label": "UK", "location": "United Kingdom", "country_indeed": "uk"},
@@ -25,12 +24,25 @@ SEARCH_TERM = "Cloud Engineer, DevOps Engineer"
 
 # Words/phrases you don't want showing up in the title or description.
 # Each entry gets turned into a "-term" exclusion (multi-word phrases get quoted automatically).
-# Example: ["manager", "intern", "night shift"]
 EXCLUDE_TERMS = ["manager", "intern", "senior manager", "data engineer"]
 
 JOB_TYPE = "fulltime"
 HOURS_OLD = 720.0
 RESULTS_WANTED_PER_COUNTRY = 100
+
+# Columns we want in the final table, in order.
+COLUMNS_TO_SHOW = [
+    "site",
+    "job_url",
+    "job_url_direct",
+    "title",
+    "company",
+    "location",
+    "date_posted",
+    "job_type",
+    "country_label",
+]
+
 
 def build_search_term(base_term, exclude_terms):
     exclusions = ""
@@ -38,36 +50,35 @@ def build_search_term(base_term, exclude_terms):
         term = term.strip()
         if not term:
             continue
-        # Wrap multi-word phrases in quotes so Indeed treats them as an exact match
         if " " in term and not (term.startswith('"') and term.endswith('"')):
             term = f'"{term}"'
         exclusions += f" -{term}"
     return f"{base_term}{exclusions}"
 
 
-FINAL_SEARCH_TERM = build_search_term(SEARCH_TERM, EXCLUDE_TERMS)
-print(f"Using search term: {FINAL_SEARCH_TERM}")
-
-
-def load_applied():
-    if os.path.exists(APPLIED_FILE):
-        with open(APPLIED_FILE, "r") as f:
+def load_applied(applied_file=APPLIED_FILE):
+    if os.path.exists(applied_file):
+        with open(applied_file, "r") as f:
             return set(json.load(f))
     return set()
 
 
-def save_applied(applied_set):
-    with open(APPLIED_FILE, "w") as f:
+def save_applied(applied_set, applied_file=APPLIED_FILE):
+    with open(applied_file, "w") as f:
         json.dump(list(applied_set), f, indent=2)
+
+
+FINAL_SEARCH_TERM = build_search_term(SEARCH_TERM, EXCLUDE_TERMS)
+print(f"Using search term: {FINAL_SEARCH_TERM}")
 
 
 all_jobs = []
 
 for c in COUNTRIES:
-    print(f"Scraping Indeed for {c['label']}...")
+    print(f"Scraping Glassdoor for {c['label']}...")
     try:
         jobs = scrape_jobs(
-            site_name="indeed",
+            site_name="glassdoor",
             search_term=FINAL_SEARCH_TERM,
             location=c["location"],
             country_indeed=c["country_indeed"],
@@ -75,6 +86,9 @@ for c in COUNTRIES:
             hours_old=HOURS_OLD,
             results_wanted=RESULTS_WANTED_PER_COUNTRY,
         )
+        if jobs is None or len(jobs) == 0:
+            print(f"  Found 0 jobs in {c['label']}")
+            continue
         jobs["country_label"] = c["label"]
         print(f"  Found {len(jobs)} jobs in {c['label']}")
         all_jobs.append(jobs)
@@ -82,34 +96,34 @@ for c in COUNTRIES:
         print(f"  Failed to scrape {c['label']}: {e}")
 
 if not all_jobs:
-    print("No jobs found for any country. Exiting.")
+    print(
+        "\nNo jobs found for any country. Glassdoor scraping is currently broken "
+        "upstream in JobSpy (Glassdoor changed their site and broke the scraper's "
+        "CSRF token fetch + location lookup — see github.com/speedyapply/JobSpy "
+        "PR #347). Patch your local jobspy/glassdoor/__init__.py or switch this "
+        "script to Indeed/LinkedIn until the fix is released to PyPI."
+    )
     raise SystemExit(0)
 
 jobs = pd.concat(all_jobs, ignore_index=True)
 print(f"\nTotal jobs found across all countries: {len(jobs)}")
 
-columns_to_show = [
-    "site", "job_url", "job_url_direct", "title", "company",
-    "location", "date_posted", "job_type", "country_label",
-]
-jobs_filtered = jobs[columns_to_show].copy()
+# reindex instead of a plain [] lookup so we never crash if a scraper
+# returns a dataframe missing one of the expected columns
+jobs_filtered = jobs.reindex(columns=COLUMNS_TO_SHOW).copy()
 
-# Drop duplicate job URLs (a job could theoretically surface twice)
 jobs_filtered = jobs_filtered.drop_duplicates(subset=["job_url"]).reset_index(drop=True)
 
-# Exclude previously applied jobs (matched by job_url)
 applied = load_applied()
 jobs_filtered = jobs_filtered[~jobs_filtered["job_url"].isin(applied)].reset_index(drop=True)
 print(f"Showing {len(jobs_filtered)} jobs after excluding {len(applied)} previously applied")
 
-# Per-country counts for the stats bar
 country_counts = jobs_filtered["country_label"].value_counts().to_dict()
 country_badges_html = "".join(
     f'<div class="stat-badge">{label}: <strong>{count}</strong></div>'
     for label, count in country_counts.items()
 )
 
-# Build filter buttons dynamically from the countries configured above
 filter_buttons_html = '<button class="filter-btn active" data-country="all" onclick="filterCountry(\'all\')">All</button>'
 for c in COUNTRIES:
     filter_buttons_html += (
@@ -117,7 +131,6 @@ for c in COUNTRIES:
         f'onclick="filterCountry(\'{c["label"]}\')">{c["label"]}</button>'
     )
 
-# Build HTML with styling and mark-applied functionality
 rows_html = ""
 for idx, row in jobs_filtered.iterrows():
     job_url = row["job_url"] if pd.notna(row["job_url"]) else ""
@@ -128,6 +141,7 @@ for idx, row in jobs_filtered.iterrows():
     date_posted = str(row["date_posted"]) if pd.notna(row["date_posted"]) else ""
     job_type = row["job_type"] if pd.notna(row["job_type"]) else ""
     country_label = row["country_label"] if pd.notna(row["country_label"]) else ""
+    site = row["site"] if pd.notna(row["site"]) else ""
 
     url_link = f'<a href="{job_url}" target="_blank">View</a>' if job_url else ""
     direct_link = f'<a href="{job_url_direct}" target="_blank">Direct</a>' if job_url_direct else ""
@@ -135,7 +149,7 @@ for idx, row in jobs_filtered.iterrows():
     rows_html += f"""
     <tr id="row-{idx}" data-url="{job_url}" data-country="{country_label}">
         <td><span class="country-tag">{country_label}</span></td>
-        <td>{row["site"]}</td>
+        <td>{site}</td>
         <td>{url_link}</td>
         <td>{direct_link}</td>
         <td class="title-col">{title}</td>
@@ -150,7 +164,7 @@ html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Indeed Jobs - Cloud/DevOps Engineer</title>
+    <title>Glassdoor Jobs - Cloud/DevOps Engineer</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
@@ -299,7 +313,7 @@ html_content = f"""<!DOCTYPE html>
 <body>
     <div class="header">
         <h1>Job Listings — Cloud & DevOps Engineer</h1>
-        <p>Indeed &bull; UK, Ireland &amp; New Zealand &bull; Fulltime &bull; Last 30 days</p>
+        <p>Glassdoor &bull; UK, Ireland, Germany &amp; New Zealand &bull; Fulltime &bull; Last 30 days</p>
     </div>
     <div class="stats">
         <div class="stat-badge">Total found: <strong>{len(jobs)}</strong></div>
@@ -334,9 +348,8 @@ html_content = f"""<!DOCTYPE html>
     </table>
 
     <script>
-        let appliedJobs = JSON.parse(localStorage.getItem('indeedApplied') || '[]');
+        let appliedJobs = JSON.parse(localStorage.getItem('glassdoorApplied') || '[]');
 
-        // Restore applied state on page load
         appliedJobs.forEach(url => {{
             document.querySelectorAll('tr[data-url]').forEach(row => {{
                 if (row.dataset.url === url) {{
@@ -353,18 +366,17 @@ html_content = f"""<!DOCTYPE html>
             row.querySelector('.btn-apply').textContent = 'Applied';
             if (!appliedJobs.includes(url)) {{
                 appliedJobs.push(url);
-                localStorage.setItem('indeedApplied', JSON.stringify(appliedJobs));
+                localStorage.setItem('glassdoorApplied', JSON.stringify(appliedJobs));
             }}
         }}
 
         function saveApplied() {{
-            // Download applied_jobs.json so user can replace the file
             const blob = new Blob([JSON.stringify(appliedJobs, null, 2)], {{type: 'application/json'}});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = 'applied_jobs.json';
+            a.download = 'applied_jobs_glassdoor.json';
             a.click();
-            alert('Downloaded applied_jobs.json — place it next to indeed.py to exclude these jobs on next run.');
+            alert('Downloaded applied_jobs_glassdoor.json — place it next to glassdoor.py to exclude these jobs on next run.');
         }}
 
         function filterCountry(country) {{
@@ -388,4 +400,4 @@ with open(HTML_FILE, "w") as f:
 
 print(f"Jobs saved to {HTML_FILE}")
 webbrowser.open('file://' + os.path.realpath(HTML_FILE))
-print(f"Opening in browser...")
+print("Opening in browser...")
