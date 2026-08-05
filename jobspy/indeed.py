@@ -6,6 +6,7 @@ import pandas as pd
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 APPLIED_FILE = os.path.join(SCRIPT_DIR, "applied_jobs.json")
+INVALID_FILE = os.path.join(SCRIPT_DIR, "invalid_jobs.json")
 HTML_FILE = os.path.join(SCRIPT_DIR, "indeed_jobs.html")
 
 # ---------------------------------------------------------------------------
@@ -18,7 +19,9 @@ COUNTRIES = [
     {"label": "UK", "location": "United Kingdom", "country_indeed": "uk"},
     {"label": "Ireland", "location": "Ireland", "country_indeed": "ireland"},
     {"label": "Germany", "location": "Deutschland", "country_indeed": "germany"},
-    {"label": "New Zealand", "location": "New Zealand", "country_indeed": "New Zealand"},
+    {"label": "New Zealand", "location": "New Zealand", "country_indeed": "new zealand"},
+    {"label": "Canada", "location": "Canada", "country_indeed": "canada"},
+    {"label": "Netherlands", "location": "Netherlands", "country_indeed": "netherlands"},
 ]
 
 SEARCH_TERM = "Cloud Engineer, DevOps Engineer"
@@ -26,10 +29,10 @@ SEARCH_TERM = "Cloud Engineer, DevOps Engineer"
 # Words/phrases you don't want showing up in the title or description.
 # Each entry gets turned into a "-term" exclusion (multi-word phrases get quoted automatically).
 # Example: ["manager", "intern", "night shift"]
-EXCLUDE_TERMS = ["manager", "intern", "senior manager", "data engineer"]
+EXCLUDE_TERMS = ["manager", "intern", "senior manager", "data engineer", "Full-Stack Software Engineer"]
 
 JOB_TYPE = "fulltime"
-HOURS_OLD = 720.0
+HOURS_OLD = 1000.0
 RESULTS_WANTED_PER_COUNTRY = 100
 
 def build_search_term(base_term, exclude_terms):
@@ -59,6 +62,18 @@ def load_applied():
 def save_applied(applied_set):
     with open(APPLIED_FILE, "w") as f:
         json.dump(list(applied_set), f, indent=2)
+
+
+def load_invalid():
+    if os.path.exists(INVALID_FILE):
+        with open(INVALID_FILE, "r") as f:
+            return set(json.load(f))
+    return set()
+
+
+def save_invalid(invalid_set):
+    with open(INVALID_FILE, "w") as f:
+        json.dump(list(invalid_set), f, indent=2)
 
 
 all_jobs = []
@@ -97,10 +112,14 @@ jobs_filtered = jobs[columns_to_show].copy()
 # Drop duplicate job URLs (a job could theoretically surface twice)
 jobs_filtered = jobs_filtered.drop_duplicates(subset=["job_url"]).reset_index(drop=True)
 
-# Exclude previously applied jobs (matched by job_url)
+# Exclude previously applied or invalid jobs (matched by job_url)
 applied = load_applied()
-jobs_filtered = jobs_filtered[~jobs_filtered["job_url"].isin(applied)].reset_index(drop=True)
-print(f"Showing {len(jobs_filtered)} jobs after excluding {len(applied)} previously applied")
+invalid = load_invalid()
+excluded_urls = applied.union(invalid)
+jobs_filtered = jobs_filtered[~jobs_filtered["job_url"].isin(excluded_urls)].reset_index(drop=True)
+print(
+    f"Showing {len(jobs_filtered)} jobs after excluding {len(applied)} applied and {len(invalid)} invalid jobs"
+)
 
 # Per-country counts for the stats bar
 country_counts = jobs_filtered["country_label"].value_counts().to_dict()
@@ -132,6 +151,13 @@ for idx, row in jobs_filtered.iterrows():
     url_link = f'<a href="{job_url}" target="_blank">View</a>' if job_url else ""
     direct_link = f'<a href="{job_url_direct}" target="_blank">Direct</a>' if job_url_direct else ""
 
+    # NOTE: we no longer pass the raw URL into the onclick attribute.
+    # Embedding a JSON/double-quoted URL string inside an already
+    # double-quoted HTML attribute broke the markup (the first quote
+    # inside the URL prematurely closed the attribute), which is why
+    # "Invalid" (and, less obviously, "Mark Applied") stopped working.
+    # The row's data-url attribute already carries the URL, so the JS
+    # functions below just read it from there via idx.
     rows_html += f"""
     <tr id="row-{idx}" data-url="{job_url}" data-country="{country_label}">
         <td><span class="country-tag">{country_label}</span></td>
@@ -143,7 +169,10 @@ for idx, row in jobs_filtered.iterrows():
         <td>{location}</td>
         <td>{date_posted}</td>
         <td>{job_type}</td>
-        <td><button class="btn-apply" onclick="markApplied({idx}, '{job_url}')">Mark Applied</button></td>
+        <td>
+            <button class="btn-apply" onclick="markApplied({idx})">Mark Applied</button>
+            <button class="btn-invalid" onclick="markInvalid({idx})">Invalid</button>
+        </td>
     </tr>"""
 
 html_content = f"""<!DOCTYPE html>
@@ -231,6 +260,17 @@ html_content = f"""<!DOCTYPE html>
             transition: background 0.2s;
         }}
         .btn-save:hover {{ background: #059669; }}
+        .btn-invalid-save {{
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }}
+        .btn-invalid-save:hover {{ background: #1d4ed8; }}
         table {{
             width: 100%;
             border-collapse: collapse;
@@ -294,6 +334,26 @@ html_content = f"""<!DOCTYPE html>
             transition: background 0.2s;
         }}
         .btn-apply:hover {{ background: #dc2626; }}
+        .btn-invalid {{
+            background: #f59e0b;
+            color: #fff;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 5px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-left: 8px;
+        }}
+        .btn-invalid:hover {{ background: #d97706; }}
+        .btn-invalid:disabled, .btn-apply:disabled {{
+            opacity: 0.7;
+            cursor: default;
+        }}
+        tr.invalid {{
+            opacity: 0.45;
+            filter: blur(0.5px);
+        }}
     </style>
 </head>
 <body>
@@ -305,13 +365,15 @@ html_content = f"""<!DOCTYPE html>
         <div class="stat-badge">Total found: <strong>{len(jobs)}</strong></div>
         <div class="stat-badge">Showing: <strong>{len(jobs_filtered)}</strong></div>
         <div class="stat-badge">Already applied: <strong>{len(applied)}</strong></div>
+        <div class="stat-badge">Invalid jobs: <strong>{len(invalid)}</strong></div>
         {country_badges_html}
     </div>
     <div class="controls">
         <div class="filter-group">
             {filter_buttons_html}
         </div>
-        <button class="btn-save" onclick="saveApplied()">Save Applied Jobs (update file)</button>
+        <button class="btn-save" onclick="saveApplied()">Save Applied Jobs</button>
+        <button class="btn-invalid-save" onclick="saveInvalid()">Save Invalid Jobs</button>
     </div>
     <table>
         <thead>
@@ -335,36 +397,104 @@ html_content = f"""<!DOCTYPE html>
 
     <script>
         let appliedJobs = JSON.parse(localStorage.getItem('indeedApplied') || '[]');
+        let invalidJobs = JSON.parse(localStorage.getItem('indeedInvalid') || '[]');
 
         // Restore applied state on page load
         appliedJobs.forEach(url => {{
             document.querySelectorAll('tr[data-url]').forEach(row => {{
                 if (row.dataset.url === url) {{
                     row.classList.add('applied');
-                    row.querySelector('.btn-apply').textContent = 'Applied';
+                    const applyButton = row.querySelector('.btn-apply');
+                    if (applyButton) {{
+                        applyButton.textContent = 'Applied';
+                        applyButton.disabled = true;
+                    }}
+                    const invalidButton = row.querySelector('.btn-invalid');
+                    if (invalidButton) {{
+                        invalidButton.disabled = true;
+                    }}
                 }}
             }});
         }});
 
-        function markApplied(idx, url) {{
+        // Restore invalid state on page load
+        invalidJobs.forEach(url => {{
+            document.querySelectorAll('tr[data-url]').forEach(row => {{
+                if (row.dataset.url === url) {{
+                    row.classList.add('invalid');
+                    const invalidButton = row.querySelector('.btn-invalid');
+                    if (invalidButton) {{
+                        invalidButton.textContent = 'Invalid';
+                        invalidButton.disabled = true;
+                    }}
+                    const applyButton = row.querySelector('.btn-apply');
+                    if (applyButton) {{
+                        applyButton.disabled = true;
+                    }}
+                }}
+            }});
+        }});
+
+        // Both handlers now take only the row index and read the URL
+        // straight off the row's data-url attribute — no more passing
+        // a raw URL string through an inline onclick attribute.
+        function markApplied(idx) {{
             const row = document.getElementById('row-' + idx);
+            const url = row.dataset.url;
             if (row.classList.contains('applied')) return;
+            row.classList.remove('invalid');
             row.classList.add('applied');
-            row.querySelector('.btn-apply').textContent = 'Applied';
+            const applyButton = row.querySelector('.btn-apply');
+            if (applyButton) {{
+                applyButton.textContent = 'Applied';
+                applyButton.disabled = true;
+            }}
+            const invalidButton = row.querySelector('.btn-invalid');
+            if (invalidButton) {{
+                invalidButton.disabled = true;
+            }}
             if (!appliedJobs.includes(url)) {{
                 appliedJobs.push(url);
                 localStorage.setItem('indeedApplied', JSON.stringify(appliedJobs));
             }}
         }}
 
+        function markInvalid(idx) {{
+            const row = document.getElementById('row-' + idx);
+            const url = row.dataset.url;
+            if (row.classList.contains('invalid')) return;
+            row.classList.add('invalid');
+            const invalidButton = row.querySelector('.btn-invalid');
+            if (invalidButton) {{
+                invalidButton.textContent = 'Invalid';
+                invalidButton.disabled = true;
+            }}
+            const applyButton = row.querySelector('.btn-apply');
+            if (applyButton) {{
+                applyButton.disabled = true;
+            }}
+            if (!invalidJobs.includes(url)) {{
+                invalidJobs.push(url);
+                localStorage.setItem('indeedInvalid', JSON.stringify(invalidJobs));
+            }}
+        }}
+
         function saveApplied() {{
-            // Download applied_jobs.json so user can replace the file
             const blob = new Blob([JSON.stringify(appliedJobs, null, 2)], {{type: 'application/json'}});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = 'applied_jobs.json';
             a.click();
             alert('Downloaded applied_jobs.json — place it next to indeed.py to exclude these jobs on next run.');
+        }}
+
+        function saveInvalid() {{
+            const blob = new Blob([JSON.stringify(invalidJobs, null, 2)], {{type: 'application/json'}});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'invalid_jobs.json';
+            a.click();
+            alert('Downloaded invalid_jobs.json — place it next to indeed.py to exclude these jobs on next run.');
         }}
 
         function filterCountry(country) {{
